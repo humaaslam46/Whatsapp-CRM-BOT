@@ -1,0 +1,7 @@
+[
+  {"name": "Ali Raza", "phone": "0300-1234567", "message": "Hi, what is the price of your service?", "source": "WhatsApp"},
+  {"name": null, "phone": "+92 321 9876543", "message": "I want a demo of your product please", "source": "WhatsApp"},
+  {"name": "Ali Raza", "phone": "03001234567", "message": "Following up, is there a discount available?", "source": "WhatsApp"},
+  {"name": "Sara Khan", "phone": "0333-4445556", "message": "My last order had an issue, it is not working", "source": "WhatsApp"},
+  {"name": "Ali Raza", "phone": "92 300 1234567", "message": "Ok I'd like to buy the premium plan", "source": "WhatsApp"}
+]
