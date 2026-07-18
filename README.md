@@ -1,127 +1,183 @@
-# CRM Integration Module — WhatsApp Auto-Reply Bot
-**SafeX Solutions ML Internship — Group 53 — Week 2 individual task**
-**Built by:** Huma Aslam
+# WhatsApp Auto-Reply Bot — SafeX Solutions ML Internship
+**Group 53 — Week 2 — Built individually by Huma Aslam**
 
-## What this is
+> **Note on scope:** This project was originally assigned as a 9-person group
+> task, with CRM Integration as my individual Week 2 module. Since my
+> teammates' modules (WhatsApp message receiving, auto-reply generation)
+> were not delivered, I built the full end-to-end bot myself so the project
+> would be complete and demoable. The CRM Integration piece below remains
+> the module I was formally assigned and graded on; the WhatsApp-receiving
+> and auto-reply pieces were added to make the system fully functional.
 
-This module is one piece of the group's WhatsApp Auto-Reply Bot. Its job:
-whenever the bot's message-capture piece (built by another teammate)
-receives a WhatsApp message from a lead, this module
+## What this bot does
 
-1. **Normalizes** the phone number so the same person is recognized
-   regardless of how their number was formatted.
-2. **De-duplicates** — if the phone number already exists in the CRM, the
-   existing record is updated instead of a new one being created.
-3. **Tags intent** — classifies the message as `Pricing`, `Demo Request`,
-   `Support`, `Purchase Intent`, or `General` (rule-based keyword matching,
-   lemmatized with spaCy for robustness; swappable for an LLM classifier
-   later without touching other files).
-4. **Writes to Airtable** — creates or updates the lead record, including a
-   `Status` field (`New` -> `Contacted` on repeat contact).
-
-## Architecture
+1. A user sends a WhatsApp message to the bot's number (via Twilio's
+   WhatsApp Sandbox).
+2. The bot receives it, logs it as a lead in Airtable — **de-duplicating**
+   by phone number and **tagging** the message's intent.
+3. The bot sends back an automatic reply, chosen based on that intent.
 
 ```
-Teammate's WhatsApp        This module                     Airtable
-capture module    ---->    POST /leads/webhook   ---->    Leads table
-                            (FastAPI)
-                              |
-                              v
-                    dedup.py + tagging.py + crm.py
+User's WhatsApp
+      |
+      v
+Twilio WhatsApp Sandbox  (receives the message, forwards it as a webhook)
+      |
+      v
+ngrok  (tunnels the public Twilio webhook to your local machine)
+      |
+      v
+FastAPI app — POST /whatsapp/webhook
+      |
+      +--> app/dedup.py     (normalize phone, check for existing lead)
+      +--> app/tagging.py   (classify message intent — spaCy + keywords)
+      +--> app/crm.py       (orchestrates the above, writes to Airtable)
+      +--> app/reply.py     (pick a canned reply based on intent)
+      |
+      v
+Airtable "Leads" table  <---- CRM record created/updated
+      |
+Twilio  <---- TwiML reply sent back
+      |
+      v
+User's WhatsApp (receives the auto-reply)
 ```
 
-- `app/schema.py` — the `IncomingLead` data contract other modules send data in.
-- `app/dedup.py` — phone number normalization + duplicate lookup.
-- `app/tagging.py` — intent classification.
-- `app/crm.py` — orchestrates dedup + tagging + create/update.
-- `app/airtable_client.py` — Airtable API wrapper, plus `MockAirtableClient`
-  for offline demo/testing.
-- `app/main.py` — FastAPI service exposing the module to the rest of the bot.
+## Project structure
+
+```
+safex-crm-integration/
+├── app/
+│   ├── schema.py            # IncomingLead / ProcessedLead data contracts
+│   ├── dedup.py              # phone normalization + duplicate lookup
+│   ├── tagging.py            # intent classification (spaCy + keywords)
+│   ├── reply.py               # canned auto-reply text per intent
+│   ├── airtable_client.py    # Airtable API wrapper + MockAirtableClient
+│   ├── crm.py                 # ties dedup + tagging + Airtable together
+│   └── main.py                 # FastAPI app: /leads/webhook, /whatsapp/webhook
+├── CRM_Integration_Demo.ipynb   # notebook demo using mock data (no credentials needed)
+├── sample_leads.json
+├── requirements.txt
+└── README.md
+```
+
+## Module breakdown
+
+### 1. WhatsApp receiving (Twilio Sandbox)
+Real WhatsApp messages arrive via Twilio's free Sandbox. Twilio POSTs each
+incoming message as form data to whatever public URL is configured in the
+Sandbox settings — in this project, an ngrok tunnel pointing at the local
+FastAPI server's `/whatsapp/webhook` endpoint.
+
+### 2. CRM Integration (the originally assigned module)
+- **De-duplication** (`dedup.py`): normalizes phone numbers to a consistent
+  digit format regardless of spacing, dashes, or missing country codes, so
+  the same person is recognized across multiple messages.
+- **Intent tagging** (`tagging.py`): classifies each message as `Pricing`,
+  `Demo Request`, `Support`, `Purchase Intent`, or `General`, using spaCy
+  lemmatization plus keyword matching.
+- **CRM writes** (`crm.py`, `airtable_client.py`): creates a new Airtable
+  record for a first-time lead, or updates the existing record (bumping
+  `Status` from `New` to `Contacted`, incrementing `Message Count`) for a
+  repeat contact.
+
+### 3. Auto-reply generation
+- **`reply.py`**: simple rule-based responses, one canned reply per intent
+  tag. No external API/LLM key required. Swappable for an LLM-based
+  generator later without touching any other file.
+- The FastAPI endpoint returns the reply as **TwiML** XML, which Twilio
+  reads and sends back to the user on WhatsApp — no outbound Twilio API
+  call or credentials needed for this direction.
 
 ## Airtable setup
 
-1. Create a new Airtable base (or a table inside the shared team base if one exists).
-2. Create a table named `Leads` with these fields:
+Base: `Safex Whatsapp BOT CRM`, table: `Leads`, with these fields:
 
-   | Field name      | Type            |
-   |-----------------|-----------------|
-   | Name            | Single line text |
-   | Phone           | Single line text (normalized, e.g. `923001234567`) |
-   | Last Message    | Long text       |
-   | Intent Tag      | Single select (`Pricing`, `Demo Request`, `Support`, `Purchase Intent`, `General`) |
-   | Status          | Single select (`New`, `Contacted`, `Qualified`, `Lost`) |
-   | Source          | Single line text |
-   | First Contact   | Date/time       |
-   | Last Contact    | Date/time       |
-   | Message Count   | Number          |
+| Field name      | Type            |
+|-----------------|-----------------|
+| Name            | Single line text |
+| Phone           | Single line text (normalized, e.g. `923001234567`) |
+| Last Message    | Long text       |
+| Intent Tag      | Single select — options: `Pricing`, `Demo Request`, `Support`, `Purchase Intent`, `General` |
+| Status          | Single select — options: `New`, `Contacted`, `Qualified`, `Lost` |
+| Source          | Single line text |
+| First Contact   | Date, with "Include time" enabled |
+| Last Contact    | Date, with "Include time" enabled |
+| Message Count   | Number          |
 
-3. Get a Personal Access Token (Airtable account settings -> Developer hub)
-   with read/write scope on this base, and the Base ID (from the API docs
-   page for your base).
+Credentials needed: a Personal Access Token (Airtable Developer Hub, with
+`data.records:read` + `data.records:write` scopes on this base) and the
+Base ID (from the base's API documentation page).
 
-4. Set environment variables before running:
-   ```bash
-   export AIRTABLE_API_KEY="your_pat_here"
-   export AIRTABLE_BASE_ID="appXXXXXXXXXXXXXX"
-   export AIRTABLE_TABLE_NAME="Leads"
-   ```
+## How to run this end-to-end
 
-## How to run
-
-Install dependencies:
-```bash
+**1. Install dependencies:**
+```powershell
 pip install -r requirements.txt
 python -m spacy download en_core_web_sm   # optional, improves tagging
 ```
 
-**Option A — the demo notebook (no Airtable credentials needed):**
-```bash
-jupyter notebook CRM_Integration_Demo.ipynb
+**2. Set environment variables** (each new terminal session):
+```powershell
+$env:AIRTABLE_API_KEY="your_token_here"
+$env:AIRTABLE_BASE_ID="your_base_id_here"
+$env:AIRTABLE_TABLE_NAME="Leads"
 ```
-Runs the full pipeline against `sample_leads.json` using an in-memory mock
-CRM, so you (or an evaluator) can see input/output without any setup.
 
-**Option B — the real service (for integration with teammates' modules):**
-```bash
+**3. Start the server:**
+```powershell
 uvicorn app.main:app --reload --port 8001
 ```
-Then teammates POST captured leads to `http://localhost:8001/leads/webhook`
-with a JSON body like:
-```json
-{"name": "Ali Raza", "phone": "0300-1234567", "message": "What is the price?"}
+
+**4. In a second terminal, expose it publicly with ngrok:**
+```powershell
+ngrok http 8001
 ```
-Check `GET /leads` to see everything currently in the CRM, and `GET
-/health` to confirm Airtable is connected.
+Copy the `https://....ngrok-free.app` (or `.dev`) forwarding URL it prints.
 
-## How it integrates with the rest of Group 53
+**5. Connect Twilio's WhatsApp Sandbox:**
+- Twilio Console → Messaging → Try it out → WhatsApp Sandbox Settings
+- Join the sandbox from your phone by WhatsApp-messaging the join code to
+  the sandbox number
+- Set "When a message comes in" to `<your-ngrok-url>/whatsapp/webhook`,
+  method POST, and save
 
-- This module **does not** read WhatsApp messages directly — it expects
-  another teammate's capture module to forward each message as JSON to
-  `/leads/webhook`. Confirmed this boundary with the group so nobody
-  duplicates the WhatsApp API integration.
-- This module **does not** send auto-replies — that's a separate
-  response-generation module elsewhere in the project.
-- The Airtable base is the single shared source of truth other modules
-  (e.g. a reporting/dashboard module, if the group has one) can also read from.
+**6. Test it for real:** message the Twilio sandbox number from your phone.
+You should get an automatic reply back, and a new/updated row should
+appear in Airtable within a few seconds.
 
-## Testing notes
+## Testing without WhatsApp/Twilio (offline demo)
 
-- `sample_leads.json` includes 5 sample messages, 3 of which are from the
-  same person with differently-formatted phone numbers, to demonstrate
-  de-duplication.
-- The notebook shows this collapses to 3 CRM records, with the repeat
-  lead's status moving from `New` to `Contacted` and `Message Count`
-  incrementing.
+- **`CRM_Integration_Demo.ipynb`** — runs the dedup + tagging + CRM logic
+  against `sample_leads.json` using an in-memory `MockAirtableClient`, so
+  it works with zero setup or credentials.
+- **`/leads/webhook`** — a plain JSON endpoint (separate from the WhatsApp
+  one) for testing the CRM logic directly with `curl`/PowerShell without
+  needing Twilio or ngrok running:
+  ```powershell
+  Invoke-RestMethod -Uri "http://localhost:8001/leads/webhook" -Method Post -Body '{"name": "Ali Raza", "phone": "0300-1234567", "message": "What is the price?"}' -ContentType "application/json"
+  ```
+- **`http://localhost:8001/docs`** — FastAPI's interactive Swagger UI, useful
+  for a visual demo in the explanation video.
 
-## Submission checklist (for this Week 2 task)
+## Known limitations / notes for evaluators
 
-- [x] Jupyter notebook with sample input/output (`CRM_Integration_Demo.ipynb`)
-- [x] Source code (`app/`)
-- [x] This documentation (`README.md`)
-- [x] Screenshots or short recording of the module working — take these
-      while running the notebook and/or the FastAPI service with `curl`/Postman
-- [x] Push to GitHub repository
-- [x] Record 5–15 min explanation video (face visible): cover architecture,
-      challenges (e.g. phone number formatting inconsistencies), tools used,
-      and a live demo
-- [x] Submit anonymous feedback on Group Leader via the weekly form by Friday
+- Auto-replies are rule-based (5 canned responses by intent), not LLM-generated,
+  per project scope decisions made for this iteration.
+- Twilio's Sandbox is a free testing environment — not a production WhatsApp
+  Business number. Production would require WhatsApp Business API approval.
+- The CRM Integration module (`dedup.py`, `tagging.py`, `crm.py`,
+  `airtable_client.py`) was designed to be reusable regardless of which
+  module sends it leads — it exposes a plain JSON webhook (`/leads/webhook`)
+  independent of the WhatsApp-specific one (`/whatsapp/webhook`), so it
+  would integrate cleanly with teammates' modules if those are added later.
+
+## Submission checklist
+
+- [x] Jupyter notebook with sample input/output
+- [x] Source code
+- [x] This documentation
+- [ ] Screenshots / recording of the module working (Airtable rows + WhatsApp conversation)
+- [ ] Push to GitHub repository
+- [ ] Record 5–15 min explanation video (face visible): architecture, challenges, tools, live demo
+- [ ] Submit anonymous feedback on Group Leader via the weekly form by Friday
