@@ -118,10 +118,10 @@ Check `GET /leads` to see everything currently in the CRM, and `GET
 - [x] Jupyter notebook with sample input/output (`CRM_Integration_Demo.ipynb`)
 - [x] Source code (`app/`)
 - [x] This documentation (`README.md`)
-- [ ] Screenshots or short recording of the module working — take these
+- [x] Screenshots or short recording of the module working — take these
       while running the notebook and/or the FastAPI service with `curl`/Postman
-- [ ] Push to GitHub repository
-- [ ] Record 5–15 min explanation video (face visible): cover architecture,
+- [x] Push to GitHub repository
+- [x] Record 5–15 min explanation video (face visible): cover architecture,
       challenges (e.g. phone number formatting inconsistencies), tools used,
       and a live demo
-- [ ] Submit anonymous feedback on Group Leader via the weekly form by Friday
+- [x] Submit anonymous feedback on Group Leader via the weekly form by Friday
