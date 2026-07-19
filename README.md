@@ -1,5 +1,5 @@
 # WhatsApp Auto-Reply Bot — SafeX Solutions ML Internship
-**Group 53 — Week 2 — Built individually by Huma Aslam**
+**Group 23 — Week 2 — Built individually by Huma Aslam**
 
 > **Note on scope:** This project was originally assigned as a 9-person group
 > task, with CRM Integration as my individual Week 2 module. Since my
@@ -181,3 +181,10 @@ appear in Airtable within a few seconds.
 - [ ] Push to GitHub repository
 - [ ] Record 5–15 min explanation video (face visible): architecture, challenges, tools, live demo
 - [ ] Submit anonymous feedback on Group Leader via the weekly form by Friday
+
+---
+## 👤 Author
+
+**Huma Aslam**
+GitHub: [@humaaslam46](https://github.com/humaaslam46)
+LinkedIn: [@huma-aslam01](https://linkedin.com/in/huma-aslam01)
