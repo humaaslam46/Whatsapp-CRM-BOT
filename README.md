@@ -177,10 +177,10 @@ appear in Airtable within a few seconds.
 - [x] Jupyter notebook with sample input/output
 - [x] Source code
 - [x] This documentation
-- [ ] Screenshots / recording of the module working (Airtable rows + WhatsApp conversation)
-- [ ] Push to GitHub repository
-- [ ] Record 5–15 min explanation video (face visible): architecture, challenges, tools, live demo
-- [ ] Submit anonymous feedback on Group Leader via the weekly form by Friday
+- [x] Screenshots / recording of the module working (Airtable rows + WhatsApp conversation)
+- [x] Push to GitHub repository
+- [x] Record 5–15 min explanation video (face visible): architecture, challenges, tools, live demo
+- [x] Submit anonymous feedback on Group Leader via the weekly form by Friday
 
 ---
 ## 👤 Author
